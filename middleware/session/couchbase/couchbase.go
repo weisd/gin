@@ -21,7 +21,7 @@ import (
 
 	"github.com/couchbaselabs/go-couchbase"
 
-	"github.com/macaron-contrib/session"
+	"github.com/weisd/gin/middleware/session"
 )
 
 // CouchbaseSessionStore represents a couchbase session store implementation.

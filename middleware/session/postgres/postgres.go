@@ -24,7 +24,7 @@ import (
 
 	_ "github.com/lib/pq"
 
-	"github.com/macaron-contrib/session"
+	"github.com/weisd/gin/middleware/session"
 )
 
 // PostgresStore represents a postgres session store implementation.

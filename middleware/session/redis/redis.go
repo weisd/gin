@@ -25,7 +25,7 @@ import (
 	"gopkg.in/ini.v1"
 	"gopkg.in/redis.v2"
 
-	"github.com/macaron-contrib/session"
+	"github.com/weisd/gin/middleware/session"
 )
 
 // RedisStore represents a redis session store implementation.

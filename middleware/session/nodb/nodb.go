@@ -21,7 +21,7 @@ import (
 	"github.com/lunny/nodb"
 	"github.com/lunny/nodb/config"
 
-	"github.com/macaron-contrib/session"
+	"github.com/weisd/gin/middleware/session"
 )
 
 // NodbStore represents a nodb session store implementation.

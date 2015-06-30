@@ -16,6 +16,9 @@ const (
 	defaultStatus = 200
 )
 
+// weisd
+type BeforeFunc func(ResponseWriter)
+
 type (
 	ResponseWriter interface {
 		http.ResponseWriter
@@ -28,12 +31,14 @@ type (
 		WriteString(string) (int, error)
 		Written() bool
 		WriteHeaderNow()
+		Before(before BeforeFunc)
 	}
 
 	responseWriter struct {
 		http.ResponseWriter
-		size   int
-		status int
+		size        int
+		status      int
+		beforeFuncs []BeforeFunc // weisd
 	}
 )
 
@@ -56,6 +61,7 @@ func (w *responseWriter) WriteHeader(code int) {
 
 func (w *responseWriter) WriteHeaderNow() {
 	if !w.Written() {
+		w.callBefore()
 		w.size = 0
 		w.ResponseWriter.WriteHeader(w.status)
 	}
@@ -103,4 +109,16 @@ func (w *responseWriter) CloseNotify() <-chan bool {
 // Implements the http.Flush interface
 func (w *responseWriter) Flush() {
 	w.ResponseWriter.(http.Flusher).Flush()
+}
+
+// weisd add writer before
+func (w *responseWriter) callBefore() {
+	for i := len(w.beforeFuncs) - 1; i >= 0; i-- {
+		w.beforeFuncs[i](w)
+	}
+}
+
+// weisd
+func (w *responseWriter) Before(before BeforeFunc) {
+	w.beforeFuncs = append(w.beforeFuncs, before)
 }

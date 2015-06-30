@@ -13,7 +13,7 @@
 // License for the specific language governing permissions and limitations
 // under the License.
 
-// Package session a middleware that provides the session management of Macaron.
+// Package session a middleware that provides the session management of gin.
 package session
 
 // NOTE: last sync 000033e on Nov 4, 2014.
@@ -25,7 +25,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/Unknwon/macaron"
+	"github.com/weisd/gin"
 )
 
 const _VERSION = "0.1.6"
@@ -56,9 +56,9 @@ type Store interface {
 	// Read returns raw session store by session ID.
 	Read(string) (RawStore, error)
 	// Destory deletes a session.
-	Destory(*macaron.Context) error
+	Destory(*gin.Context) error
 	// RegenerateId regenerates a session store from old session ID to new one.
-	RegenerateId(*macaron.Context) (RawStore, error)
+	RegenerateId(*gin.Context) (RawStore, error)
 	// Count counts and returns number of sessions.
 	Count() int
 	// GC calls GC to clean expired sessions.
@@ -78,7 +78,7 @@ type Options struct {
 	Provider string
 	// Provider configuration, it's corresponding to provider.
 	ProviderConfig string
-	// Cookie name to save session ID. Default is "MacaronSession".
+	// Cookie name to save session ID. Default is "ginSession".
 	CookieName string
 	// Cookie path to store. Default is "/".
 	CookiePath string
@@ -106,45 +106,61 @@ func prepareOptions(options []Options) Options {
 	if len(opt.Section) == 0 {
 		opt.Section = "session"
 	}
-	sec := macaron.Config().Section(opt.Section)
 
 	if len(opt.Provider) == 0 {
-		opt.Provider = sec.Key("PROVIDER").MustString("memory")
+		opt.Provider = "memory"
 	}
 	if len(opt.ProviderConfig) == 0 {
-		opt.ProviderConfig = sec.Key("PROVIDER_CONFIG").MustString("data/sessions")
+		switch opt.Provider {
+		case "file":
+			opt.ProviderConfig = "data/sessions"
+		case "redis":
+			opt.ProviderConfig = "addr=127.0.0.1:6379"
+		case "memcache":
+			opt.ProviderConfig = "data/sessions"
+		}
+
 	}
 	if len(opt.CookieName) == 0 {
-		opt.CookieName = sec.Key("COOKIE_NAME").MustString("MacaronSession")
+		opt.CookieName = "ginSession"
 	}
 	if len(opt.CookiePath) == 0 {
-		opt.CookiePath = sec.Key("COOKIE_PATH").MustString("/")
+		opt.CookiePath = "/"
 	}
 	if opt.Gclifetime == 0 {
-		opt.Gclifetime = sec.Key("GC_INTERVAL_TIME").MustInt64(3600)
+		opt.Gclifetime = 3600
 	}
 	if opt.Maxlifetime == 0 {
-		opt.Maxlifetime = sec.Key("MAX_LIFE_TIME").MustInt64(opt.Gclifetime)
+		opt.Maxlifetime = opt.Gclifetime
 	}
 	if !opt.Secure {
-		opt.Secure = sec.Key("SECURE").MustBool()
+		opt.Secure = false
 	}
 	if opt.CookieLifeTime == 0 {
-		opt.CookieLifeTime = sec.Key("COOKIE_LIFE_TIME").MustInt()
+		opt.CookieLifeTime = 86400
 	}
 	if len(opt.Domain) == 0 {
-		opt.Domain = sec.Key("DOMAIN").String()
+		opt.Domain = ""
 	}
 	if opt.IDLength == 0 {
-		opt.IDLength = sec.Key("ID_LENGTH").MustInt(16)
+		opt.IDLength = 16
 	}
 
 	return opt
 }
 
-// Sessioner is a middleware that maps a session.SessionStore service into the Macaron handler chain.
+func GetSession(ctx *gin.Context) Store {
+	sess, ok := ctx.Get("Middleware_Session")
+	if !ok {
+		panic("plase use sessioner firse")
+	}
+
+	return sess.(store)
+}
+
+// Sessioner is a middleware that maps a session.SessionStore service into the gin handler chain.
 // An single variadic session.Options struct can be optionally provided to configure.
-func Sessioner(options ...Options) macaron.Handler {
+func Sessioner(options ...Options) gin.HandlerFunc {
 	opt := prepareOptions(options)
 	manager, err := NewManager(opt.Provider, opt)
 	if err != nil {
@@ -152,38 +168,40 @@ func Sessioner(options ...Options) macaron.Handler {
 	}
 	go manager.startGC()
 
-	return func(ctx *macaron.Context) {
+	return func(ctx *gin.Context) {
 		sess, err := manager.Start(ctx)
 		if err != nil {
 			panic("session(start): " + err.Error())
 		}
 
 		// Get flash.
-		vals, _ := url.ParseQuery(ctx.GetCookie("macaron_flash"))
-		if len(vals) > 0 {
-			f := &Flash{Values: vals}
-			f.ErrorMsg = f.Get("error")
-			f.SuccessMsg = f.Get("success")
-			f.InfoMsg = f.Get("info")
-			f.WarningMsg = f.Get("warning")
-			ctx.Data["Flash"] = f
-			ctx.SetCookie("macaron_flash", "", -1, opt.CookiePath)
-		}
+		// vals, _ := url.ParseQuery(ctx.GetCookie("gin_flash"))
+		// if len(vals) > 0 {
+		// 	f := &Flash{Values: vals}
+		// 	f.ErrorMsg = f.Get("error")
+		// 	f.SuccessMsg = f.Get("success")
+		// 	f.InfoMsg = f.Get("info")
+		// 	f.WarningMsg = f.Get("warning")
+		// 	ctx.Data["Flash"] = f
+		// 	ctx.SetCookie("gin_flash", "", -1, opt.CookiePath)
+		// }
 
 		f := &Flash{ctx, url.Values{}, "", "", "", ""}
-		ctx.Resp.Before(func(macaron.ResponseWriter) {
+		ctx.Writer.Before(func(gin.ResponseWriter) {
 			if flash := f.Encode(); len(flash) > 0 {
-				ctx.SetCookie("macaron_flash", flash, 0, opt.CookiePath)
+				ctx.SetCookie("gin_flash", flash, 0, opt.CookiePath)
 			}
 		})
 
-		ctx.Map(f)
+		// ctx.Map(f)
 		s := store{
 			RawStore: sess,
 			Manager:  manager,
 		}
 
-		ctx.MapTo(s, (*Store)(nil))
+		ctx.Set("Middleware_Session", s)
+
+		// ctx.MapTo(s, (*Store)(nil))
 
 		ctx.Next()
 
@@ -254,7 +272,7 @@ func (m *Manager) sessionId() string {
 
 // Start starts a session by generating new one
 // or retrieve existence one by reading session ID from HTTP request if it's valid.
-func (m *Manager) Start(ctx *macaron.Context) (RawStore, error) {
+func (m *Manager) Start(ctx *gin.Context) (RawStore, error) {
 	sid := ctx.GetCookie(m.opt.CookieName)
 	if len(sid) > 0 && m.provider.Exist(sid) {
 		return m.provider.Read(sid)
@@ -277,8 +295,8 @@ func (m *Manager) Start(ctx *macaron.Context) (RawStore, error) {
 	if m.opt.CookieLifeTime >= 0 {
 		cookie.MaxAge = m.opt.CookieLifeTime
 	}
-	http.SetCookie(ctx.Resp, cookie)
-	ctx.Req.AddCookie(cookie)
+	http.SetCookie(ctx.Writer, cookie)
+	ctx.Request.AddCookie(cookie)
 	return sess, nil
 }
 
@@ -288,7 +306,7 @@ func (m *Manager) Read(sid string) (RawStore, error) {
 }
 
 // Destory deletes a session by given ID.
-func (m *Manager) Destory(ctx *macaron.Context) error {
+func (m *Manager) Destory(ctx *gin.Context) error {
 	sid := ctx.GetCookie(m.opt.CookieName)
 	if len(sid) == 0 {
 		return nil
@@ -304,12 +322,12 @@ func (m *Manager) Destory(ctx *macaron.Context) error {
 		Expires:  time.Now(),
 		MaxAge:   -1,
 	}
-	http.SetCookie(ctx.Resp, cookie)
+	http.SetCookie(ctx.Writer, cookie)
 	return nil
 }
 
 // RegenerateId regenerates a session store from old session ID to new one.
-func (m *Manager) RegenerateId(ctx *macaron.Context) (sess RawStore, err error) {
+func (m *Manager) RegenerateId(ctx *gin.Context) (sess RawStore, err error) {
 	sid := m.sessionId()
 	oldsid := ctx.GetCookie(m.opt.CookieName)
 	sess, err = m.provider.Regenerate(oldsid, sid)
@@ -327,8 +345,8 @@ func (m *Manager) RegenerateId(ctx *macaron.Context) (sess RawStore, err error) 
 	if m.opt.CookieLifeTime >= 0 {
 		ck.MaxAge = m.opt.CookieLifeTime
 	}
-	http.SetCookie(ctx.Resp, ck)
-	ctx.Req.AddCookie(ck)
+	http.SetCookie(ctx.Writer, ck)
+	ctx.Request.AddCookie(ck)
 	return sess, nil
 }
 
@@ -361,23 +379,24 @@ func (m *Manager) SetSecure(secure bool) {
 //      \/            \/       \/        \/       \/
 
 type Flash struct {
-	ctx *macaron.Context
+	ctx *gin.Context
 	url.Values
 	ErrorMsg, WarningMsg, InfoMsg, SuccessMsg string
 }
 
 func (f *Flash) set(name, msg string, current ...bool) {
-	isShow := false
-	if (len(current) == 0 && macaron.FlashNow) ||
-		(len(current) > 0 && current[0]) {
-		isShow = true
-	}
+	f.Set(name, msg)
+	// isShow := false
+	// if (len(current) == 0 && gin.FlashNow) ||
+	// 	(len(current) > 0 && current[0]) {
+	// 	isShow = true
+	// }
 
-	if isShow {
-		f.ctx.Data["Flash"] = f
-	} else {
-		f.Set(name, msg)
-	}
+	// if isShow {
+	// 	f.ctx.Data["Flash"] = f
+	// } else {
+	// 	f.Set(name, msg)
+	// }
 }
 
 func (f *Flash) Error(msg string, current ...bool) {
