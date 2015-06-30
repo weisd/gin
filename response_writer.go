@@ -51,6 +51,7 @@ func (w *responseWriter) reset(writer http.ResponseWriter) {
 }
 
 func (w *responseWriter) WriteHeader(code int) {
+	w.callBefore() // weisd
 	if code > 0 && w.status != code {
 		if w.Written() {
 			debugPrint("[WARNING] Headers were already written. Wanted to override status code %d with %d", w.status, code)
@@ -61,7 +62,6 @@ func (w *responseWriter) WriteHeader(code int) {
 
 func (w *responseWriter) WriteHeaderNow() {
 	if !w.Written() {
-		w.callBefore()
 		w.size = 0
 		w.ResponseWriter.WriteHeader(w.status)
 	}

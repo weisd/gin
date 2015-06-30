@@ -149,6 +149,7 @@ func prepareOptions(options []Options) Options {
 	return opt
 }
 
+// weisd
 func GetSession(ctx *gin.Context) Store {
 	sess, ok := ctx.Get("Middleware_Session")
 	if !ok {
@@ -156,6 +157,26 @@ func GetSession(ctx *gin.Context) Store {
 	}
 
 	return sess.(store)
+}
+
+// weisd
+func GetFlash(ctx *gin.Context) *Flash {
+	flash, ok := ctx.Get("Middleware_Flash")
+	if !ok {
+		panic("plase use sessioner firse")
+	}
+
+	return flash.(*Flash)
+}
+
+// weisd
+func GetFlashValues(ctx *gin.Context) *Flash {
+	flash, ok := ctx.Get("Middleware_FlashValues")
+	if !ok {
+		panic("plase use sessioner firse")
+	}
+
+	return flash.(*Flash)
 }
 
 // Sessioner is a middleware that maps a session.SessionStore service into the gin handler chain.
@@ -174,17 +195,19 @@ func Sessioner(options ...Options) gin.HandlerFunc {
 			panic("session(start): " + err.Error())
 		}
 
+		fv := &Flash{Values: url.Values{}}
 		// Get flash.
-		// vals, _ := url.ParseQuery(ctx.GetCookie("gin_flash"))
-		// if len(vals) > 0 {
-		// 	f := &Flash{Values: vals}
-		// 	f.ErrorMsg = f.Get("error")
-		// 	f.SuccessMsg = f.Get("success")
-		// 	f.InfoMsg = f.Get("info")
-		// 	f.WarningMsg = f.Get("warning")
-		// 	ctx.Data["Flash"] = f
-		// 	ctx.SetCookie("gin_flash", "", -1, opt.CookiePath)
-		// }
+		vals, _ := url.ParseQuery(ctx.GetCookie("gin_flash"))
+		if len(vals) > 0 {
+			fv = &Flash{Values: vals}
+			fv.ErrorMsg = fv.Get("error")
+			fv.SuccessMsg = fv.Get("success")
+			fv.InfoMsg = fv.Get("info")
+			fv.WarningMsg = fv.Get("warning")
+		}
+
+		ctx.Set("Middleware_FlashValues", fv) // weisd
+		ctx.SetCookie("gin_flash", "", -1, opt.CookiePath)
 
 		f := &Flash{ctx, url.Values{}, "", "", "", ""}
 		ctx.Writer.Before(func(gin.ResponseWriter) {
@@ -193,15 +216,14 @@ func Sessioner(options ...Options) gin.HandlerFunc {
 			}
 		})
 
-		// ctx.Map(f)
+		ctx.Set("Middleware_Flash", f) // weisd
+
 		s := store{
 			RawStore: sess,
 			Manager:  manager,
 		}
 
-		ctx.Set("Middleware_Session", s)
-
-		// ctx.MapTo(s, (*Store)(nil))
+		ctx.Set("Middleware_Session", s) // weisd
 
 		ctx.Next()
 

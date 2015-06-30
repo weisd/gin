@@ -60,8 +60,8 @@ func (c *Context) SetCookie(name string, value string, others ...interface{}) {
 		}
 	}
 
-	// http.SetCookie(c.Writer, cookie)
-	// c.Request.AddCookie(cookie)
+	http.SetCookie(c.Writer, cookie)
+	c.Request.AddCookie(cookie)
 
-	c.Writer.Header().Add("Set-Cookie", cookie.String())
+	// c.Writer.Header().Add("Set-Cookie", cookie.String())
 }
