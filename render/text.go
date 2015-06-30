@@ -25,9 +25,19 @@ func (r String) Render(w http.ResponseWriter) error {
 func WriteString(w http.ResponseWriter, format string, data []interface{}) {
 	writeContentType(w, plainContentType)
 
+	res := ""
 	if len(data) > 0 {
-		fmt.Fprintf(w, format, data...)
+		res = fmt.Sprintf(format, data...)
 	} else {
-		io.WriteString(w, format)
+		res = format
 	}
+
+	w.Write([]byte(res))
+	// if len(data) > 0 {
+	// 	fmt.Fprintf(w, format, data...)
+	// } else {
+	// 	io.WriteString(w, format)
+	// 	// fmt.Fprintf(w, format, data...)
+	// }
+
 }

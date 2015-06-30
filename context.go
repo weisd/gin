@@ -6,6 +6,7 @@ package gin
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"net/http"
@@ -344,8 +345,22 @@ func (c *Context) XML(code int, obj interface{}) {
 
 // Writes the given string into the response body.
 func (c *Context) String(code int, format string, values ...interface{}) {
-	c.writermem.WriteHeader(code)
-	render.WriteString(c.Writer, format, values)
+	// c.writermem.WriteHeader(code)
+	// render.WriteString(c.Writer, format, values)
+
+	res := ""
+	if len(values) > 0 {
+		res = fmt.Sprintf(format, values...)
+	} else {
+		res = format
+	}
+
+	data := []byte(res)
+
+	c.Render(code, render.Data{
+		ContentType: "text/plain; charset=utf-8",
+		Data:        data,
+	})
 }
 
 // Returns a HTTP redirect to the specific location.
