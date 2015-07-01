@@ -70,6 +70,7 @@ func (w *responseWriter) WriteHeaderNow() {
 }
 
 func (w *responseWriter) Write(data []byte) (n int, err error) {
+	// panic("ww")
 	w.WriteHeaderNow()
 	n, err = w.ResponseWriter.Write(data)
 	w.size += n

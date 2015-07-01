@@ -1,13 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"github.com/weisd/gin"
 	"github.com/weisd/gin/middleware/session"
 	// _ "github.com/weisd/gin/middleware/session/redis"
 )
 
 func main() {
-	r := gin.Default()
+	r := gin.New()
+	r.Use(gin.Gziper())
 	r.Use(session.Sessioner())
 
 	r.GET("/", func(ctx *gin.Context) {
@@ -28,6 +30,8 @@ func main() {
 		flash := session.GetFlash(ctx)
 
 		flash.Info("weisd")
+
+		fmt.Println("55")
 	})
 
 	r.Run(":8000")

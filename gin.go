@@ -281,7 +281,7 @@ func (engine *Engine) handleHTTPRequest(context *Context) {
 				context.handlers = handlers
 				context.Params = params
 				context.Next()
-				context.writermem.WriteHeaderNow()
+				context.Writer.WriteHeaderNow()
 				return
 
 			} else if httpMethod != "CONNECT" && path != "/" {
