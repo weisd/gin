@@ -3,13 +3,14 @@ package main
 import (
 	"fmt"
 	"github.com/weisd/gin"
+	"github.com/weisd/gin/middleware/gzip"
 	"github.com/weisd/gin/middleware/session"
 	// _ "github.com/weisd/gin/middleware/session/redis"
 )
 
 func main() {
 	r := gin.New()
-	r.Use(gin.Gziper())
+	r.Use(gzip.Gziper())
 	r.Use(session.Sessioner())
 
 	r.GET("/", func(ctx *gin.Context) {
